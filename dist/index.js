@@ -228,26 +228,31 @@ function rng() {
   return rnds8Pool.slice(poolPtr, poolPtr += 16);
 }
 
+// ../../node_modules/uuid/dist/esm-node/regex.js
+var regex_default = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+
+// ../../node_modules/uuid/dist/esm-node/validate.js
+function validate(uuid) {
+  return typeof uuid === "string" && regex_default.test(uuid);
+}
+var validate_default = validate;
+
 // ../../node_modules/uuid/dist/esm-node/stringify.js
 var byteToHex = [];
 for (let i = 0; i < 256; ++i) {
-  byteToHex.push((i + 256).toString(16).slice(1));
+  byteToHex.push((i + 256).toString(16).substr(1));
 }
-function unsafeStringify(arr, offset = 0) {
-  return byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + "-" + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + "-" + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + "-" + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + "-" + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]];
+function stringify(arr, offset = 0) {
+  const uuid = (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + "-" + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + "-" + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + "-" + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + "-" + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase();
+  if (!validate_default(uuid)) {
+    throw TypeError("Stringified UUID is invalid");
+  }
+  return uuid;
 }
-
-// ../../node_modules/uuid/dist/esm-node/native.js
-import crypto2 from "crypto";
-var native_default = {
-  randomUUID: crypto2.randomUUID
-};
+var stringify_default = stringify;
 
 // ../../node_modules/uuid/dist/esm-node/v4.js
 function v4(options, buf, offset) {
-  if (native_default.randomUUID && !buf && !options) {
-    return native_default.randomUUID();
-  }
   options = options || {};
   const rnds = options.random || (options.rng || rng)();
   rnds[6] = rnds[6] & 15 | 64;
@@ -259,7 +264,7 @@ function v4(options, buf, offset) {
     }
     return buf;
   }
-  return unsafeStringify(rnds);
+  return stringify_default(rnds);
 }
 var v4_default = v4;
 
@@ -676,7 +681,7 @@ async function executeTrade(runtime, params, retryCount = 0) {
     };
   }
 }
-async function getChainWalletBalance(runtime, tokenAddress) {
+async function getChainWalletBalance(runtime, _tokenAddress) {
   return await getWalletBalance(runtime);
 }
 
@@ -731,18 +736,6 @@ var tokenCache = new NodeCache2({
   // 20 minutes in seconds
   checkperiod: 120
   // Check for expired entries every 2 minutes
-});
-var skipWaitCache = new NodeCache2({
-  stdTTL: 7200,
-  // 2 hours in seconds
-  checkperiod: 600
-  // Check for expired entries every 10 minutes
-});
-var tweetRateCache = new NodeCache2({
-  stdTTL: 86400,
-  // 24 hours in seconds
-  checkperiod: 3600
-  // Check every hour
 });
 async function updateSellDetails(runtime, tokenAddress, recommenderId, tradeAmount, latestTrade, tokenData) {
   const trustScoreDb = new TrustScoreDatabase(runtime.databaseAdapter.db);
@@ -872,6 +865,7 @@ async function updateSellDetails(runtime, tokenAddress, recommenderId, tradeAmou
 async function getChainBalance(connection, walletAddress, tokenAddress) {
   return await getTokenBalance(
     connection,
+    // TODO: Resolve type conflict caused by multiple versions of @solana/web3.js
     walletAddress,
     new PublicKey2(tokenAddress)
   );
@@ -904,16 +898,18 @@ async function createRabbiTraderPlugin(getSetting, runtime) {
     }
   }
   if (missingSettings.length > 0) {
-    const errorMsg = `Missing required settings: ${missingSettings.join(", ")}`;
+    const errorMsg = `Missing required settings: ${missingSettings.join(
+      ", "
+    )}`;
     elizaLogger8.error(errorMsg);
     throw new Error(errorMsg);
   }
   elizaLogger8.log("Initializing Solana connection...");
-  let walletProvider = {
+  const walletProvider = {
     connection,
     getChain: () => ({ type: "solana" }),
     getAddress: () => keypair.publicKey.toBase58(),
-    signMessage: async (message) => {
+    signMessage: async (_message) => {
       throw new Error(
         "Message signing not implemented for Solana wallet"
       );
@@ -938,6 +934,7 @@ async function createRabbiTraderPlugin(getSetting, runtime) {
           const tokenPublicKey = new PublicKey2(tokenAddress);
           const amount = await getTokenBalance(
             connection,
+            // TODO: Resolve type conflict caused by multiple versions of @solana/web3.js
             keypair.publicKey,
             tokenPublicKey
           );
@@ -949,7 +946,7 @@ async function createRabbiTraderPlugin(getSetting, runtime) {
             name: "Solana"
           };
         }
-      } catch (error) {
+      } catch {
         return {
           value: BigInt(0),
           decimals: tokenAddress.startsWith("0x") ? 18 : 9,
@@ -982,12 +979,8 @@ async function createRabbiTraderPlugin(getSetting, runtime) {
         return 0;
       }
     },
-    executeTrade: async (params) => {
-      try {
-        return { success: true };
-      } catch (error) {
-        throw error;
-      }
+    executeTrade: async (_params) => {
+      return { success: true };
     },
     getFormattedPortfolio: async () => ""
   };
@@ -1059,7 +1052,9 @@ async function analyzeToken(runtime, connection, twitterService, tokenAddress) {
     const now = Date.now();
     if (cachedData && now - cachedData.lastAnalysis < 12e5) {
       elizaLogger8.log(
-        `Using cached data for ${tokenAddress}, last analyzed ${Math.floor((now - cachedData.lastAnalysis) / 1e3)}s ago`
+        `Using cached data for ${tokenAddress}, last analyzed ${Math.floor(
+          (now - cachedData.lastAnalysis) / 1e3
+        )}s ago`
       );
       return;
     }
@@ -1089,12 +1084,6 @@ async function analyzeToken(runtime, connection, twitterService, tokenAddress) {
       elizaLogger8.error("No wallet public key configured");
       return;
     }
-    const balance = await connection.getBalance(
-      new PublicKey2(walletPublicKey)
-    );
-    const walletSolBalance = {
-      formatted: (balance / 1e9).toString()
-    };
     const trustScoreDb = new TrustScoreDatabase(runtime.databaseAdapter.db);
     const latestTrade = trustScoreDb.getLatestTradePerformance(
       tokenAddress,
@@ -1201,7 +1190,8 @@ async function analyzeToken(runtime, connection, twitterService, tokenAddress) {
               result
             );
           }
-        } catch (parseError) {
+        } catch (err) {
+          elizaLogger8.error("rabbi - trade error", err);
         }
         return [];
       }
@@ -1395,6 +1385,7 @@ async function buy({
   }
 }
 async function sell({
+  // eslint-disable-next-line
   state,
   runtime,
   tokenAddress,
@@ -1406,19 +1397,6 @@ async function sell({
   trustScore
 }) {
   const tradeAmount = Number(latestTrade?.buy_amount || 0);
-  const tradeMemory = {
-    userId: state.userId,
-    agentId: runtime.agentId,
-    roomId: state.roomId,
-    content: {
-      text: `Execute sell for ${tokenAddress}`,
-      tokenAddress,
-      amount: tradeAmount,
-      action: "SELL",
-      source: "system",
-      type: "trade"
-    }
-  };
   const tradeResult = await executeTrade(runtime, {
     tokenAddress,
     amount: tradeAmount,
