@@ -1,3 +1,5 @@
+# Unmaintained: this plugin needs a maintainer.
+
 # Rabbi Trader Plugin
 
 An automated cryptocurrency trading plugin for Solana tokens with integrated trust scoring, market analysis, and Twitter notifications.
